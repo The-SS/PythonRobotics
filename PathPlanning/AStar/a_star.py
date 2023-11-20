@@ -18,7 +18,7 @@ show_animation = True
 
 class AStarPlanner:
 
-    def __init__(self, ox, oy, resolution, rr):
+    def __init__(self, ox, oy, resolution, rr, show_animation):
         """
         Initialize grid map for a star planning
 
@@ -36,6 +36,7 @@ class AStarPlanner:
         self.x_width, self.y_width = 0, 0
         self.motion = self.get_motion_model()
         self.calc_obstacle_map(ox, oy)
+        self.show_animation = show_animation
 
     class Node:
         def __init__(self, x, y, cost, parent_index):
@@ -84,7 +85,7 @@ class AStarPlanner:
             current = open_set[c_id]
 
             # show graph
-            if show_animation:  # pragma: no cover
+            if self.show_animation:  # pragma: no cover
                 plt.plot(self.calc_grid_position(current.x, self.min_x),
                          self.calc_grid_position(current.y, self.min_y), "xc")
                 # for stopping simulation with the esc key.
@@ -269,7 +270,7 @@ def main():
         plt.grid(True)
         plt.axis("equal")
 
-    a_star = AStarPlanner(ox, oy, grid_size, robot_radius)
+    a_star = AStarPlanner(ox, oy, grid_size, robot_radius, show_animation)
     rx, ry = a_star.planning(sx, sy, gx, gy)
 
     if show_animation:  # pragma: no cover
