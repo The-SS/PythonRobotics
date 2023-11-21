@@ -15,10 +15,12 @@ from dynamics import StanleyState, StanleyCtrl
 import matplotlib.pyplot as plt
 from PathPlanning.CubicSpline import cubic_spline_planner
 # from PathTracking.stanley_controller.stanley_controller import pid_control, stanley_control
+from helpers import in_collision, at_goal
 
 
 t = 0  # simulation time
 t_sim = 20  # [sec] simulation time
+at_goal_thresh = 0.3
 
 # load simulation parameters
 params = sim_params()
@@ -55,7 +57,7 @@ for sim_step in range(sim_steps):
     if sim_step % plan_rate == 0:
         t_plan_start = time.time()
         a_star = AStarPlanner(*params['env'], params['grid_size'], params['rob_rad'], params['animate'])
-        plan_x, plan_y = a_star.planning(dyn.x, dyn.y, *params['goal'])
+        plan_x, plan_y = a_star.planning(ctrlr.state.x, ctrlr.state.y, *params['goal'])
         t_plan_end = time.time()
         print('A* time: ', t_plan_end - t_plan_start)
 
@@ -66,7 +68,7 @@ for sim_step in range(sim_steps):
         # find control and move vehicle
         plan_x = plan_x[::-1]
         plan_y = plan_y[::-1]
-        if len(plan_x) == 1:
+        if len(plan_x) == 1 or at_goal(*params['goal'], ctrlr.state.x, ctrlr.state.y, at_goal_thresh):
             break
         cx, cy, cyaw, _, _ = cubic_spline_planner.calc_spline_course(plan_x, plan_y, ds=ctrl_dt)
         target_idx, _ = ctrlr.calc_target_index(cx, cy)
@@ -92,13 +94,15 @@ for sim_step in range(sim_steps):
         plan_x_original, plan_y_original = plan_x, plan_y
     plt.plot(plan_x, plan_y, "-r")
     plt.plot(hist_x, hist_y, "-", color='blue')
-    circ = plt.Circle((dyn.x, dyn.y), rob_rad, color='tab:blue', ec='k', lw=3)
+    if in_collision(*params['env'], ctrlr.state.x, ctrlr.state.y, rob_rad):
+        circ = plt.Circle((ctrlr.state.x, ctrlr.state.y), rob_rad, color='tab:blue', ec='tab:red', lw=2)
+    else:
+        circ = plt.Circle((ctrlr.state.x, ctrlr.state.y), rob_rad, color='tab:blue', ec='k', lw=2)
     ax.add_patch(circ)
-    plt.arrow(dyn.x, dyn.y, 0.9*rob_rad*np.cos(dyn.yaw), 0.9*rob_rad*np.sin(dyn.yaw),
+    plt.arrow(ctrlr.state.x, dyn.y, 0.9*rob_rad*np.cos(ctrlr.state.yaw), 0.9*rob_rad*np.sin(ctrlr.state.yaw),
               width=0.3, head_width=0, color='yellow')
     plt.pause(ctrl_dt)
 
-    # check that goal is reached
 
 plt.plot(plan_x_original, plan_y_original, "-r")
 plt.pause(3.0)
