@@ -37,15 +37,16 @@ def sim_params():
 
     # environment
     grid_size = 0.5  # m
-    ox, oy = def_env(ds=grid_size)
-    oxd, oyd = def_env(ds=grid_size, dense=True)
+    ox, oy, ox_env, oy_env, ob_list, env_bounds = def_env(ds=grid_size)
+    oxd, oyd, _, _, _, _ = def_env(ds=grid_size, dense=True)
 
     return {"animate": show_animation,
             "planning_rate": planning_rate, "control_rate": control_rate,
             "ctrl_speed_gain": Kp, "ctrl_heading_gain": k,
             "rob_rad": robot_radius, "wheelbase": wheelbase, "max_speed": max_speed, "max_steer": max_steer,
             "start": [sx, sy], "goal": [gx, gy],
-            "grid_size": grid_size, "env": [ox, oy], "env_dense": [oxd, oyd],
+            "grid_size": grid_size, "env_bounds": [ox_env, oy_env], "env": [ox, oy], "env_dense": [oxd, oyd],
+            "env_bounds_list": env_bounds, "ob_list": ob_list,
             }
 
 
@@ -76,6 +77,8 @@ def def_env(ds=0.1, dense=False):
     for i in np.linspace(ymin, ymax, round((ymax - ymin) / ds), endpoint=True):  # left
         ox.append(xmin)
         oy.append(i)
+    env_bounds = [xmin, xmax, ymin, ymax]
+    ox_env, oy_env = ox[:], oy[:]
 
     def populate_obst(xmin, xmax, ymin, ymax):
         """ defines a rectangular obstacle between the given bounds"""
@@ -95,11 +98,28 @@ def def_env(ds=0.1, dense=False):
     for ob in ob_list:
         populate_obst(*ob)
 
-    return ox, oy
+    return ox, oy, ox_env, oy_env, ob_list, env_bounds
 
 
 if __name__ == "__main__":
     params = sim_params()
     plot_env(params["start"], params["goal"], params["env"])
     plot_env(params["start"], params["goal"], params["env_dense"])
+
+    # import matplotlib.pyplot as plt
+    # from lidar_sensing import lidar_sensing
+    # plot_env(params["start"], params["goal"], params["env_dense"], show=False)
+    # r, x, y = lidar_sensing(*params['start'], env_bounds=params['env_bounds_list'], ob_list=params['ob_list'], count=360)
+    # plt.scatter(x, y)
+    # plt.show()
+
+    # from lidar_sensing import simulate_lidar, plot_lidar_simulation
+    #
+    # max_range = 10.0  # Maximum range of the LiDAR sensor
+    #
+    # # Simulate LiDAR measurements
+    # lidar_measurements = simulate_lidar(*params["start"], *params["env"], max_range)
+    # # Plot the LiDAR simulation
+    # plot_lidar_simulation(*params["start"], *params["env"], lidar_measurements)
+
 
