@@ -51,29 +51,33 @@ hist_t = [t]
 hist_x = [ctrlr.state.x]
 hist_y = [ctrlr.state.y]
 
+use_lidar = True
+
 for sim_step in range(sim_steps):
     print('----------------------')
     print('t = ', t)
 
     # perception
-    r, ox, oy = lidar_sensing(ctrlr.state.x, ctrlr.state.y, env_bounds=params['env_bounds_list'],
-                            ob_list=params['ob_list'], count=360)
-
+    if use_lidar:
+        print('Sensing environment.')
+        r, ox_lidar, oy_lidar = lidar_sensing(ctrlr.state.x, ctrlr.state.y, env_bounds=params['env_bounds_list'],
+                                ob_list=params['ob_list'], count=360)
+        ox_env, oy_env = params['env_bounds']
+        ox_plan, oy_plan = ox_lidar + ox_env, oy_lidar + oy_env
+    else:
+        ox_plan, oy_plan = params['env']
     # update planning at
     if sim_step % plan_rate == 0:
+        print('Motion planning.')
         t_plan_start = time.time()
-        ox_env, oy_env = params['env_bounds']
-        a_star = AStarPlanner(ox + ox_env, oy + oy_env, params['grid_size'], params['rob_rad'], params['animate'])
+
+        a_star = AStarPlanner(ox_plan, oy_plan, params['grid_size'], params['rob_rad'], params['animate'])
         plan_x, plan_y = a_star.planning(ctrlr.state.x, ctrlr.state.y, *params['goal'])
         t_plan_end = time.time()
         print('A* time: ', t_plan_end - t_plan_start)
 
-        plot_env(params['start'], params['goal'], params['env_dense'], show=False)
-        plt.scatter(ox, oy, color='hotpink', marker='x')
-        plt.plot(plan_x, plan_y, "-r")
-        plt.show(block=False)
-
         # find control and move vehicle
+        print('Cubic spline fit.')
         plan_x = plan_x[::-1]
         plan_y = plan_y[::-1]
         if len(plan_x) == 1 or at_goal(*params['goal'], ctrlr.state.x, ctrlr.state.y, at_goal_thresh):
@@ -82,6 +86,7 @@ for sim_step in range(sim_steps):
         target_idx, _ = ctrlr.calc_target_index(cx, cy)
 
     # apply control
+    print('Tracking with controller.')
     a_i = ctrlr.pid_control(target_speed, dyn.v)
     d_i, target_idx = ctrlr.stanley_control(cx, cy, cyaw, target_idx)
     ctrlr.state.update(a_i, d_i)
@@ -90,17 +95,19 @@ for sim_step in range(sim_steps):
     t += ctrl_dt
 
     # save data
+    print('Saving data.')
     hist_t.append(t)
     hist_x.append(ctrlr.state.x)
     hist_y.append(ctrlr.state.y)
 
     # plot
-    plt.cla()
+    print('Plotting.')
     ax = plt.gca()
+    plt.cla()
     plot_env(params['start'], params['goal'], params['env_dense'], show=False)
+    plt.scatter(ox_plan, oy_plan, color='hotpink', marker='o')
     if len(hist_t) == 2:
         plan_x_original, plan_y_original = plan_x, plan_y
-    plt.scatter(ox, oy, color='hotpink', marker='x')
     plt.plot(plan_x, plan_y, "-r")
     plt.plot(hist_x, hist_y, "-", color='blue')
     if in_collision(*params['env'], ctrlr.state.x, ctrlr.state.y, rob_rad):
